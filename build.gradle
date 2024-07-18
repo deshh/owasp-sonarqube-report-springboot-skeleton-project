@@ -1,0 +1,74 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.3.1'
+	id 'io.spring.dependency-management' version '1.1.5'
+	id "org.owasp.dependencycheck" version "10.0.2"
+	id 'org.sonarqube' version '5.1.0.4882'
+}
+
+group = 'com.testing'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: '3.3.1'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+//	the gson dependency with no vulnerabilities as of now is 'com.google.code.gson:gson:2.10.1'
+//  we have used a older version to verify the owasp gradle plugin setup
+	implementation 'com.google.code.gson:gson:2.8.8'
+}
+
+configurations {
+	all {
+		exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// following two lines ensure that certain tasks are executed in a specific order
+//This line ensures that the dependencyCheckAnalyze task runs only after the dependencyCheckUpdate task has completed.
+//dependencyCheckUpdate: This task updates the local database of known vulnerabilities from the NVD and other sources.
+//This task analyzes the project's dependencies against the updated vulnerability database to identify known vulnerabilities
+dependencyCheckAnalyze.dependsOn dependencyCheckUpdate
+
+//check: This is a standard lifecycle task in Gradle that aggregates all verification tasks,
+//such as tests and code quality checks.
+//By making it depend on dependencyCheckAnalyze, we integrate the OWASP Dependency Check analysis
+//into the overall verification process of our project.
+check.dependsOn dependencyCheckAnalyze
+
+dependencyCheck {
+	formats = ['xml','json']
+	failBuildOnCVSS = 6
+	suppressionFile = layout.projectDirectory.dir("config/owasp-dependency-check/suppressions.xml")
+	// since the $buildDir is deprecated we have used "layout.buildDirectory.dir"
+	outputDirectory = layout.buildDirectory.dir("reports/owasp-dependency-check").get().asFile
+	nvd {
+		apiKey = System.getenv("NVD_API_KEY")
+		delay = 15000
+	}
+}
+
+sonar {
+    properties {
+        property('sonar.projectKey', 'demo-service-key')
+        property('sonar.projectName', 'demo-service')
+		property('sonar.host.url', 'http://localhost:9000/')
+		property('sonar.token', project.hasProperty('sonar.token') ? project.getProperty('sonar.token') : "")
+    }
+}
