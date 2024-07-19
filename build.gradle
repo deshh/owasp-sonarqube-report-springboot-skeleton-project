@@ -69,6 +69,6 @@ sonar {
         property('sonar.projectKey', 'demo-service-key')
         property('sonar.projectName', 'demo-service')
 		property('sonar.host.url', 'http://localhost:9000/')
-		property('sonar.token', project.hasProperty('sonar.token') ? project.getProperty('sonar.token') : "")
+		property('sonar.token', project.hasProperty('SONAR_TOKEN') ? project.getProperty('SONAR_TOKEN') : "")
     }
 }
